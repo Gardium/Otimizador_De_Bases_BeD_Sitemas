@@ -1,0 +1,76 @@
+object Form1: TForm1
+  Left = 0
+  Top = 0
+  Caption = 'Form1'
+  ClientHeight = 201
+  ClientWidth = 447
+  Color = clBtnFace
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  WindowState = wsMinimized
+  OnCreate = FormCreate
+  PixelsPerInch = 96
+  TextHeight = 13
+  object ZQuery1: TZQuery
+    Connection = ZConnection1
+    SQL.Strings = (
+      'SELECT id_nfcevendas,data, xml FROM tbl_nfcevendas')
+    Params = <>
+    Left = 24
+    object ZQuery1id_nfcevendas: TIntegerField
+      FieldName = 'id_nfcevendas'
+      Required = True
+    end
+    object ZQuery1data: TDateField
+      FieldName = 'data'
+      Required = True
+    end
+    object ZQuery1xml: TWideMemoField
+      FieldName = 'xml'
+      BlobType = ftWideMemo
+    end
+  end
+  object ZConnection1: TZConnection
+    ControlsCodePage = cCP_UTF16
+    Connected = True
+    AfterDisconnect = ZConnection1AfterDisconnect
+    Port = 3306
+    Database = 'bed'
+    User = 'root'
+    Password = 'newpwd'
+    Protocol = 'mysql-5'
+    Left = 224
+    Top = 64
+  end
+  object ZUpdateSQL1: TZUpdateSQL
+    UseSequenceFieldForRefreshSQL = False
+    Left = 128
+    Top = 64
+  end
+  object ZQuery2: TZQuery
+    Connection = ZConnection1
+    SQL.Strings = (
+      'SHOW TABLES'
+      '')
+    Params = <>
+    Left = 24
+    Top = 64
+    object ZQuery2Tables_in_bed: TWideStringField
+      FieldName = 'Tables_in_bed'
+      Required = True
+      Size = 64
+    end
+  end
+  object ZQuery3: TZQuery
+    Connection = ZConnection1
+    SQL.Strings = (
+      '')
+    Params = <>
+    Left = 24
+    Top = 136
+  end
+end

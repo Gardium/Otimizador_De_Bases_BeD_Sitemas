@@ -1,0 +1,9 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>2020/11/04 17:04:48.512.pas,C:\Users\Acer\Documents\RAD Studio\Projects\Unit1.pas=C:\Users\Acer\Desktop\Otimizador de Bases\UOTimizador.pas</Transaction>
+    <Transaction>2020/11/04 17:04:48.512.dfm,C:\Users\Acer\Documents\RAD Studio\Projects\Unit1.dfm=C:\Users\Acer\Desktop\Otimizador de Bases\UOTimizador.dfm</Transaction>
+    <Transaction>2020/11/04 17:04:53.221.dproj,C:\Users\Acer\Documents\RAD Studio\Projects\Project1.dproj=C:\Users\Acer\Desktop\Otimizador de Bases\otimizadorDeBases.dproj</Transaction>
+    <Transaction>2020/11/07 10:19:45.406.ico,C:\zmstr1920021\Demos\Demo2\databaseprocess_basededatos_12922.ico=</Transaction>
+  </Transactions>
+</BorlandProject>

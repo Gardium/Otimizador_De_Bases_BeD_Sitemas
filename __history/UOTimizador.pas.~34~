@@ -1,0 +1,221 @@
+unit UOTimizador;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, IniFiles, ZSqlUpdate, ZAbstractConnection, ZConnection, DB,
+  ZAbstractRODataset, ZAbstractDataset, ZDataset, DateUtils, ZipMstr;
+
+type
+  TForm1 = class(TForm)
+    ZQuery1: TZQuery;
+    ZConnection1: TZConnection;
+    ZUpdateSQL1: TZUpdateSQL;
+    ZQuery1id_nfcevendas: TIntegerField;
+    ZQuery1data: TDateField;
+    ZQuery1xml: TWideMemoField;
+    ZQuery2: TZQuery;
+    ZQuery2Tables_in_bed: TWideStringField;
+    ZQuery3: TZQuery;
+    ZipMaster1: TZipMaster;
+    procedure FormCreate(Sender: TObject);
+    procedure ZConnection1AfterDisconnect(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  Form1: TForm1;
+
+implementation
+
+{$R *.dfm}
+
+{Função para executar o processo e aguardar o termino para realizar o proximo processo}
+Function WinExecAndWait(const Path:  PChar; const Visibility:  Word; const Wait:  Boolean):  Boolean;
+var
+  ProcessInformation:  TProcessInformation;
+  StartupInfo:  TStartupInfo;
+begin
+  FillChar(StartupInfo, SizeOf(TStartupInfo), 0);
+  with StartupInfo do
+  begin
+    cb          := SizeOf(TStartupInfo);
+    lpReserved  := NIL;
+    lpDesktop   := NIL;
+    lpTitle     := NIL;
+    dwFlags     := STARTF_USESHOWWINDOW;
+    wShowWindow := Visibility;
+    cbReserved2 := 0;
+    lpReserved2 := NIL
+  end;
+
+  result := CreateProcess(NIL,       {address of module name}
+                          Path,      {address of command line}
+                          NIL,       {address of process security attributes}
+                          NIL,       {address of thread security attributes}
+                          FALSE,     {new process inherits handle}
+                          NORMAL_PRIORITY_CLASS,   {creation flags}
+                          NIL,       {address of new environment block}
+                          NIL,       {address of current directory name}
+                          StartupInfo,
+                          ProcessInformation);
+  if Result then
+  begin
+    with ProcessInformation do
+    begin
+      if Wait then
+      WaitForSingleObject(hProcess, INFINITE);
+      CloseHandle(hThread);
+      CloseHandle(hProcess)
+    end;
+   end;
+end;
+
+procedure TForm1.FormCreate(Sender: TObject);
+var
+  ArquivoINI: TIniFile;
+  db: string;
+  ip: string;
+  instalacao: string;
+  backup: string;
+  user: string;
+  cont: integer;
+  command: string;
+  date: string;
+  LastOptimizeTXT: TextFile;
+  LastOptimizeDate : string;
+  Data_Atual: TDate;
+  Months:integer;
+
+begin
+  {Se existir lastOptimizeDate.txt na pasta BED. Realize os processos, se não , crie o arquivo e finalize}
+  if FileExists('c:\bed\lastOptimizeDate.txt') then
+    begin
+       {Leitura do lastOptimizeDate.txt}
+      begin
+      AssignFile(LastOptimizeTXT,'c:\bed\lastOptimizeDate.txt');
+      Reset(LastOptimizeTXT)  ;
+      Readln(LastOptimizeTXT,LastOptimizeDate);
+      Closefile(LastOptimizeTXT);
+      Data_Atual :=  StrToDate(FormatDateTime('dd/mm/yyyy', Now));
+      Months := MonthsBetween(Data_Atual, StrToDate(LastOptimizeDate));
+      end;
+        {Se A data atual menos a utlima vez que o programa foi rodado  for igual ou maior a 3 meses continue o processo, se não , e finalize}
+      if Months >= 3  then
+        begin
+        {Leitura do Logo.ini}
+          begin
+            ArquivoINI := TIniFile.Create('C:\bed\logo.ini');
+            db := ArquivoINI.ReadString('LOGOMARCA', 'db', DB);
+            user := ArquivoINI.ReadString('LOGOMARCA', 'user', user);
+            ip := ArquivoINI.ReadString('LOGOMARCA', 'ip', ip);
+            instalacao := StringReplace(ArquivoINI.ReadString('MYSQL', 'instalacao', instalacao),'bin\','bin' ,[rfReplaceAll, rfIgnoreCase] );
+            backup := ArquivoINI.ReadString('MYSQL', 'backup', backup);
+            date := StringReplace(DateTostr(now), '/', '_', [rfReplaceAll, rfIgnoreCase]);
+
+            if backup = '' then
+              backup := 'C:\backup\';
+
+            ArquivoINI.Free;
+          end;
+        {Execução do MysqlDump com função WinExecandWait}
+          begin
+            command := 'cmd /C cd '+instalacao+' && mysqldump -u'+user+' -pnewpwd --databases '+db+' > '+backup+'Backup_bed_pre_optimize_'+date+'.sql ' ;
+            WinExecandWait(PCHAR(command), SW_HIDE, True);
+          end;
+
+        {Compactação do arquivo ultilizando ZipMaster}
+          begin
+           if FileExists(backup+'Backup_bed_pre_optimize_'+date+'.zip ') then
+             ZipMaster1.EraseFile(backup+'Backup_bed_pre_optimize_'+date+'.zip',HtdFinal);           ZipMaster1.ZipFileName := backup+'Backup_bed_pre_optimize_'+date+'.zip';
+           if not FileExists(backup+'Backup_bed_pre_optimize_'+date+'.sql ') then
+             begin
+              MessageDlg('Erro -'+ backup+'Backup_bed_pre_optimize_'+date+'.sql  not found',mtError,[mbOk],0);
+             Application.Terminate;
+
+             end;
+           ZipMaster1.Dll_Load := true;
+           ZipMaster1.FSpecArgs.Add(backup+'Backup_bed_pre_optimize_'+date+'.sql ');
+           ZipMaster1.Add;
+        {Deleção do SqL após a compactação}
+           ZipMaster1.EraseFile(backup+'Backup_bed_pre_optimize_'+date+'.sql',HtdFinal)
+          end;
+
+
+
+
+        {Conectando ao Banco ultilizando Zeos}
+          Try
+            begin
+              ZConnection1.HostName := ip;
+              ZConnection1.user := user;
+              ZConnection1.Database := DB;
+              ZConnection1.Connect;
+            end;
+
+          Except
+          on E: Exception do
+            begin
+             MessageDlg('Servidor não encontrado. O Otimizador será encerrado ',mtError,[mbOk],0);
+             Application.Terminate
+            end;
+          end;
+
+         {Retornando id_nfcevendas}
+          begin
+            ZQuery1.SQL.Text :=
+              'UPDATE  tbl_nfcevendas  SET xml = ''  WHERE curdate() - data  >= 300';
+            ZQuery1.Active;
+            ZQuery1.ExecSQL;
+            ZQuery1.Close;
+
+          end;
+
+          {Mostrando tabelas e Otimizando as mesmas}
+          begin
+            ZQuery2.Open;
+            for cont := 0 to Zquery2.RecordCount - 1 do
+              begin
+                ZQuery3.SQL.Text := 'optimize table ' + ZQuery2Tables_in_bed.Text;
+                ZQuery2.next;
+                ZQuery3.Open;
+              end;
+            ZQuery3.Close;
+            ZQuery2.Close;
+          end;
+
+          AssignFile(LastOptimizeTXT,'c:\bed\lastOptimizeDate.txt');
+          Rewrite(LastOptimizeTXT);
+          Writeln(LastOptimizeTXT,DateToStr(Now)) ;
+          Closefile(LastOptimizeTXT);
+        end;
+    end
+    else
+      begin
+        AssignFile(LastOptimizeTXT,'c:\bed\lastOptimizeDate.txt');
+        Rewrite(LastOptimizeTXT);
+        Writeln(LastOptimizeTXT,DateToStr(Now)) ;
+        Closefile(LastOptimizeTXT);
+      end;
+end;
+
+procedure TForm1.FormShow(Sender: TObject);
+begin
+{Desconectando o ZeosLib do Mysql}
+ZConnection1.Connected := false;
+end;
+
+procedure TForm1.ZConnection1AfterDisconnect(Sender: TObject);
+begin
+  ShowMessage('FINISH');
+  {Fechando Form}
+  Form1.Close;
+end;
+
+end.
